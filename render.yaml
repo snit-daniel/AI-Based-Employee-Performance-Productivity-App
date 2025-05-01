@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: proscope-app
+    runtime: python
+    buildCommand: ""
+    startCommand: gunicorn App:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
