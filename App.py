@@ -34,7 +34,10 @@ start_method = get_start_method()
 print(f"Using start method: {start_method}")
 
 # Load the pre-trained model
-model_path = os.path.join(os.path.expanduser("~"), "DOWNLOADS", "Final trial 5", "random_forest_model.pkl")
+
+# Use relative path from the current file location
+model_path = os.path.join(os.path.dirname(__file__), "random_forest_model.pkl")
+
 try:
     if os.path.exists(model_path):
         model = joblib.load(model_path)
