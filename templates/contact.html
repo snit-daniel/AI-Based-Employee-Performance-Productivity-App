@@ -8,6 +8,8 @@
     <title>Contact - ProScope</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
 </head>
 <body>
 
@@ -20,10 +22,7 @@
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ml-auto">
                 <li class="nav-item">
-                    <a class="nav-link" href="/">Home</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/about">About</a>
+                    <a class="nav-link" href="{{ url_for('home') if current_user.is_authenticated else url_for('login') }}">Home</a>
                 </li>
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Features</a>
@@ -33,12 +32,18 @@
                     </div>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/contact">Contact</a>
+                    <a class="nav-link" href="/contact">Contact Us</a>
+                </li>
+                <li class="nav-item">
+                    {% if session.get('user_id') %}
+                        <a class="nav-link" href="/logout">Log Out</a>
+                    {% else %}
+                        <a class="nav-link" href="/login">Log In</a>
+                    {% endif %}
                 </li>
             </ul>
         </div>
     </nav>
-
     <!-- Hero Section -->
     <div class="hero-section text-center">
         <h1 class="hero-heading">Contact Us</h1>
@@ -54,7 +59,7 @@
                 <ul class="list-unstyled">
                     <li><strong>Email:</strong> info@proscope.com</li>
                     <li><strong>Phone:</strong> +1 (123) 456-7890</li>
-                    <li><strong>Address:</strong> 123 Business Rd, City, Country</li>
+                    <li><strong>Address:</strong> 123 Business Rd, Fremont, USA</li>
                 </ul>
             </div>
             <div class="col-md-6">
@@ -90,18 +95,6 @@
         </div>
     </div>
 
-    <!-- Floating Chatbot Icon -->
-    <div id="chatbot-icon" onclick="toggleChat()">💬</div>
-
-    <!-- Chatbot Widget -->
-    <div id="chatbot-container" class="d-flex">
-        <div id="chat-header"><strong>ProScope Assistant</strong></div>
-        <div id="chat-box"></div>
-        <div id="chat-input-container">
-            <input type="text" id="chat-input" placeholder="Ask about employees...">
-            <button id="chat-send-btn" onclick="sendMessage()">Send</button>
-        </div>
-    </div>
 
     <!-- Footer Section -->
     <footer class="footer text-center">
@@ -111,56 +104,6 @@
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
-    <script>
-        function toggleChat() {
-            const container = document.getElementById('chatbot-container');
-            container.style.display = (container.style.display === 'flex') ? 'none' : 'flex';
-        }
-
-        function sendMessage() {
-            const input = document.getElementById('chat-input');
-            const message = input.value.trim();
-            if (!message) return;
-
-            const chatBox = document.getElementById('chat-box');
-
-            // Display user message
-            const userMsg = document.createElement('div');
-            userMsg.innerHTML = `<strong>You:</strong> ${message}`;
-            chatBox.appendChild(userMsg);
-
-            // Scroll to bottom
-            chatBox.scrollTop = chatBox.scrollHeight;
-
-            // Send message to backend
-            fetch('/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message })
-            })
-            .then(res => res.json())
-            .then(data => {
-                const botMsg = document.createElement('div');
-                botMsg.innerHTML = `<strong>Bot:</strong> ${data.response}`;
-                chatBox.appendChild(botMsg);
-                chatBox.scrollTop = chatBox.scrollHeight;
-            })
-            .catch(() => {
-                const errorMsg = document.createElement('div');
-                errorMsg.innerHTML = `<strong>Bot:</strong> Sorry, something went wrong.`;
-                chatBox.appendChild(errorMsg);
-            });
-
-            input.value = '';
-        }
-
-        // Allow pressing Enter to send message
-        document.getElementById('chat-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
-        });
-    </script>
 
 </body>
 </html>

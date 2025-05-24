@@ -6,75 +6,10 @@
     <title>Visualization - ProScope</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    <style>
-        /* Chatbot styles */
-        #chatbot-icon {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background-color: #007bff;
-            color: white;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            font-size: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            z-index: 1000;
-        }
-    
-        #chatbot-container {
-            position: fixed;
-            bottom: 90px;
-            right: 20px;
-            width: 350px;
-            max-height: 500px;
-            border: 1px solid #ccc;
-            border-radius: 10px;
-            background: white;
-            box-shadow: 0 0 15px rgba(0,0,0,0.2);
-            display: none;
-            flex-direction: column;
-            z-index: 1000;
-        }
-    
-        #chat-header {
-            background-color: #007bff;
-            color: white;
-            padding: 10px;
-            border-top-left-radius: 10px;
-            border-top-right-radius: 10px;
-        }
-    
-        #chat-box {
-            padding: 10px;
-            overflow-y: auto;
-            flex-grow: 1;
-            max-height: 300px;
-        }
-    
-        #chat-input-container {
-            display: flex;
-            border-top: 1px solid #ccc;
-        }
-    
-        #chat-input {
-            flex: 1;
-            border: none;
-            padding: 10px;
-        }
-    
-        #chat-send-btn {
-            background: #007bff;
-            border: none;
-            color: white;
-            padding: 10px 15px;
-        }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    
 
 </head>
 <body>
@@ -88,10 +23,7 @@
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ml-auto">
                 <li class="nav-item">
-                    <a class="nav-link" href="/">Home</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/about">About</a>
+                    <a class="nav-link" href="{{ url_for('home') if current_user.is_authenticated else url_for('login') }}">Home</a>
                 </li>
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Features</a>
@@ -101,7 +33,14 @@
                     </div>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/contact">Contact</a>
+                    <a class="nav-link" href="/contact">Contact Us</a>
+                </li>
+                <li class="nav-item">
+                    {% if session.get('user_id') %}
+                        <a class="nav-link" href="/logout">Log Out</a>
+                    {% else %}
+                        <a class="nav-link" href="/login">Log In</a>
+                    {% endif %}
                 </li>
             </ul>
         </div>
@@ -385,7 +324,7 @@
                 chatBox.scrollTop = chatBox.scrollHeight;
     
                 // Send message to backend
-                fetch('/chat', {
+                fetch('/chatbot', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message })
@@ -393,10 +332,12 @@
                 .then(res => res.json())
                 .then(data => {
                     const botMsg = document.createElement('div');
-                    botMsg.innerHTML = `<strong>Bot:</strong> ${data.response}`;
+                    botMsg.innerHTML = `<strong>Bot:</strong> ${data.reply}`;
                     chatBox.appendChild(botMsg);
                     chatBox.scrollTop = chatBox.scrollHeight;
                 })
+
+
                 .catch(() => {
                     const errorMsg = document.createElement('div');
                     errorMsg.innerHTML = `<strong>Bot:</strong> Sorry, something went wrong.`;

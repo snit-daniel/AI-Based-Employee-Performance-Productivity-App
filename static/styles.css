@@ -12,14 +12,21 @@ body {
     background-size: cover;
 }
 
-
-.chart-container {
-    margin-bottom: 30px; /* Space between rows */
+/* Layout & Typography */
+.container {
+    margin-top: 50px;
+    flex-grow: 1;
+    padding: 40px 20px;
 }
 
-/* Optional: add space between the columns (for smaller screens) */
-.row .col-md-6 {
-    margin-bottom: 20px; /* Space between columns */
+h2, h4 {
+    color: #343a40;
+}
+
+h3 {
+    color: #007bff;
+    margin-bottom: 20px;
+    font-size: 1.75rem;
 }
 
 .text-muted.small {
@@ -27,16 +34,13 @@ body {
     margin-bottom: 15px;
 }
 
-
-.container {
-    margin-top: 50px;
-    flex-grow: 1; /* This makes sure the container takes up available space */
+.lead-text {
+    font-size: 1.25rem;
+    margin-top: 15px;
+    color: #d1d1d1;
 }
 
-h2, h4 {
-    color: #343a40;
-}
-
+/* Navbar */
 .navbar {
     background-color: #343a40;
 }
@@ -49,6 +53,7 @@ h2, h4 {
     color: #007bff !important;
 }
 
+/* Hero Section */
 .hero-section {
     background-color: #1c1f26;
     color: white;
@@ -63,10 +68,13 @@ h2, h4 {
     color: #ffffff;
 }
 
-.lead-text {
-    font-size: 1.4rem;
-    margin-top: 15px;
-    color: #d1d1d1;
+/* Chart Layout */
+.chart-container {
+    margin-bottom: 30px;
+}
+
+.row .col-md-6 {
+    margin-bottom: 20px;
 }
 
 /* Card Styles */
@@ -81,6 +89,16 @@ h2, h4 {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+.card {
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    margin-top: 20px;
+}
+
+.card-body {
+    padding: 20px;
+}
+
 .card-body h5 {
     color: #007bff;
 }
@@ -89,105 +107,7 @@ h2, h4 {
     color: #555;
 }
 
-.btn-custom {
-    background-color: #007bff;
-    color: white;
-    border-radius: 50px;
-    padding: 12px 30px;
-    font-size: 1.1rem;
-}
-
-.btn-custom:hover {
-    background-color: #0056b3;
-}
-
-/* Footer */
-footer {
-    background-color: #343a40;
-    color: white;
-    text-align: center;
-    padding: 20px;
-    margin-top: auto;
-}
-
-/* Dropdown menu styling */
-.dropdown-menu {
-    background-color: #343a40;
-}
-
-.dropdown-item {
-    color: white;
-}
-
-.dropdown-item:hover {
-    background-color: #007bff;
-}
-
-
-.lead-text {
-    font-size: 1.25rem;
-    margin-top: 15px;
-}
-
-.container {
-    padding: 40px 20px;
-}
-
-.form-section {
-    background-color: #ffffff;
-    box-shadow: 0 0 15px rgba(0,0,0,0.1);
-    padding: 30px;
-    border-radius: 10px;
-    margin-top: 30px;
-}
-
-h3 {
-    color: #007bff;
-    margin-bottom: 20px;
-    font-size: 1.75rem;
-}
-
-.form-group label {
-    font-weight: 600;
-    margin-bottom: 10px;
-}
-
-.btn-primary {
-    background-color: #007bff;
-    border-color: #007bff;
-}
-
-.btn-primary:hover {
-    background-color: #0056b3;
-    border-color: #004085;
-}
-
-.card-body {
-    padding: 20px;
-}
-
-.card {
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    margin-top: 20px;
-}
-
-.footer {
-    background-color: #343a40;
-    color: white;
-    padding: 15px 0;
-}
-
-.footer p {
-    margin-bottom: 0;
-    font-size: 1rem;
-}
-
-.form-row .form-group {
-    margin-bottom: 20px;
-}
-
-
+/* Info Cards */
 .info-card {
     background: #f8f9fa;
     border-left: 4px solid #007bff;
@@ -217,14 +137,81 @@ h3 {
 }
 
 .text-info {
-    color: #6c757d!important;
+    color: #6c757d !important;
     font-size: 0.9rem;
     display: block;
     margin-top: 15px;
 }
 
+/* Buttons */
+.btn-custom {
+    background-color: #007bff;
+    color: white;
+    border-radius: 50px;
+    padding: 12px 30px;
+    font-size: 1.1rem;
+}
 
-/* Chatbot styles */
+.btn-custom:hover {
+    background-color: #0056b3;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #004085;
+}
+
+/* Form Section */
+.form-section {
+    background-color: #ffffff;
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    padding: 30px;
+    border-radius: 10px;
+    margin-top: 30px;
+}
+
+.form-group label {
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.form-row .form-group {
+    margin-bottom: 20px;
+}
+
+/* Dropdown */
+.dropdown-menu {
+    background-color: #343a40;
+}
+
+.dropdown-item {
+    color: white;
+}
+
+.dropdown-item:hover {
+    background-color: #007bff;
+}
+
+/* Footer */
+.footer, footer {
+    background-color: #343a40;
+    color: white;
+    text-align: center;
+    padding: 20px;
+    margin-top: auto;
+}
+
+.footer p {
+    margin-bottom: 0;
+    font-size: 1rem;
+}
+
+/* Chatbot Styles */
 #chatbot-icon {
     position: fixed;
     bottom: 20px;
@@ -288,4 +275,10 @@ h3 {
     border: none;
     color: white;
     padding: 10px 15px;
+}
+
+.wide-card {
+    width: 100%;
+    max-width: 750px; /* or 800px depending on your layout */
+    margin: 0 auto 30px auto; /* center it with some bottom spacing */
 }

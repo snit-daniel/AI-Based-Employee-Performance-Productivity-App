@@ -1,6 +1,5 @@
 from flask import Flask, render_template, jsonify, redirect, url_for, request, session, flash
 from flask_mail import Mail, Message
-from chat import process_contact_message, answer_hr_question  # Import from chat.py
 import re
 import pandas as pd
 import os
@@ -20,6 +19,14 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 import base64
 from sklearn.preprocessing import LabelEncoder
 from datetime import datetime
+import pymysql
+import requests
+
+
+from dotenv import load_dotenv
+load_dotenv()
+from dotenv import load_dotenv
+
 
 
 # Initialize start method
@@ -27,7 +34,7 @@ start_method = get_start_method()
 print(f"Using start method: {start_method}")
 
 # Load the pre-trained model
-model_path = os.path.join(os.path.expanduser("~"), "DOWNLOADS", "Final trial", "random_forest_model.pkl")
+model_path = os.path.join(os.path.expanduser("~"), "DOWNLOADS", "Final trial 5", "random_forest_model.pkl")
 try:
     if os.path.exists(model_path):
         model = joblib.load(model_path)
@@ -41,13 +48,14 @@ except Exception as e:
 
 # Initialize Flask app
 app = Flask(__name__)
-app.secret_key = "your_secret_key"
+app.secret_key = os.getenv("SECRET_KEY")
 
 # Initialize extensions
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
+DEEPSEEK_API_KEY = "sk-72385ab6d41845058899aabb4be43f32"
 
 
 
@@ -55,8 +63,8 @@ login_manager.login_view = "login"
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = "snitdan17@gmail.com"  # Your Gmail address
-app.config['MAIL_PASSWORD'] = "pfpa qwni sxjh natz"  # Your App Password or regular password
+app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
+app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
 app.config['MAIL_DEFAULT_SENDER'] = "snitdan17@gmail.com"  # Default sender
 
 # Initialize Flask-Mail
@@ -192,6 +200,69 @@ def send_hr_email(employee, status):
     msg.body = body
     mail.send(msg)
 
+
+
+
+
+
+
+# MySQL connection setup
+db_config = {
+    'host': 'localhost',
+    'user': 'root',
+    'password': 'snit',
+    'database': 'employee_performance',
+    'cursorclass': pymysql.cursors.DictCursor
+}
+
+
+def query_db(query):
+    with pymysql.connect(**db_config) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(query)
+            return cursor.fetchall()
+
+# Step 1: Ask DeepSeek to generate SQL
+def ask_deepseek_for_sql(question):
+    headers = {
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    prompt = f"""You are a data analyst. Use the following table schema:
+        Table: employees (
+            Employee_ID, Department, Gender, Age, Job_Title, Hire_Date, Years_At_Company,
+            Education_Level, Performance_Score, Monthly_Salary, Work_Hours_Per_Week,
+            Projects_Handled, Overtime_Hours, Sick_Days, Remote_Work_Frequency,
+            Team_Size, Training_Hours, Promotions, Employee_Satisfaction_Score, Resigned
+        )
+
+        Write an SQL query based on this question: {question}"""
+
+    body = {
+        "model": "deepseek-chat",  # or other available model
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 500
+    }
+
+    response = requests.post("https://api.deepseek.com/v1/chat/completions", headers=headers, json=body)
+    return response.json()["choices"][0]["message"]["content"]
+
+
+import re
+
+def extract_sql(text):
+    # Try to extract SQL code from markdown-style code block first
+    code_blocks = re.findall(r"```sql(.*?)```", text, re.DOTALL | re.IGNORECASE)
+    if code_blocks:
+        return code_blocks[0].strip()
+
+    # Fallback: get the last line starting with SELECT/INSERT/UPDATE/DELETE
+    lines = text.strip().splitlines()
+    sql_lines = [line.strip() for line in lines if re.match(r"^(SELECT|INSERT|UPDATE|DELETE)", line.strip(), re.IGNORECASE)]
+    return sql_lines[-1] if sql_lines else text.strip()
+
+
+
 # Routes
 @app.route('/')
 def index():
@@ -202,31 +273,14 @@ def index():
 def home():
     return render_template('home.html')
 
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-    if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
-        password = request.form['password']
-        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
 
-        try:
-            connection = get_db_connection()
-            cursor = connection.cursor()
-            cursor.execute("INSERT INTO users (username, email, password) VALUES (%s, %s, %s)", 
-                         (username, email, hashed_password))
-            connection.commit()
-            cursor.close()
-            connection.close()
-            flash('Account created successfully! Please log in.', 'success')
-            return redirect(url_for('login'))
-        except Exception as e:
-            flash('Error: ' + str(e), 'danger')
 
-    return render_template('signup.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+        
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
@@ -244,17 +298,56 @@ def login():
             flash('Login successful!', 'success')
             return redirect(url_for('home'))
         else:
-            flash('Invalid email or password', 'danger')
+            flash('Invalid email or password. Please try again.', 'danger')
             return redirect(url_for('login'))
 
     return render_template('login.html')
 
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        password = request.form['password']
+        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+
+        try:
+            connection = get_db_connection()
+            cursor = connection.cursor()
+            cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+            if cursor.fetchone():
+                flash('Email already exists! Please use a different email.', 'danger')
+                return redirect(url_for('signup'))
+            
+            cursor.execute("INSERT INTO users (username, email, password) VALUES (%s, %s, %s)", 
+                         (username, email, hashed_password))
+            connection.commit()
+            cursor.close()
+            connection.close()
+            
+            flash('Account created successfully! Please log in.', 'success')
+            return redirect(url_for('login'))
+        except Exception as e:
+            flash(f'Error: {str(e)}', 'danger')
+            return redirect(url_for('signup'))
+
+    return render_template('signup.html')
+
+
+
 @app.route('/logout')
 def logout():
-    logout_user()
-    session.pop('user_id', None)
+    # Flash message BEFORE clearing session
     flash('You have been logged out successfully.', 'info')
+    
+    # Then perform logout operations
+    logout_user()
+    session.clear()
+    
+    # Redirect to login page
     return redirect(url_for('login'))
+
 
 @app.route('/visualization')
 def visualization():
@@ -495,7 +588,7 @@ def contact():
         name = request.form['name']
         email = request.form['email']
         message = request.form['message']
-
+                                                    
         try:
             # Process the message using chat.py logic
             chat_response = process_contact_message(name, email, message)
@@ -515,13 +608,59 @@ def contact():
 
     return render_template('contact.html', success=success, error=error)
 
-# Chat endpoint (delegates to chat.py)
-@app.route('/chat', methods=['POST'])
-def chat():
-    data = request.get_json()
-    question = data['message']
-    response = answer_hr_question(question)
-    return jsonify({'response': response})
+
+# Step 2: Flask route for chatbot
+@app.route('/chatbot', methods=['POST'])
+def chatbot():
+    user_question = request.json.get('message')
+
+    try:
+        sql = ask_deepseek_for_sql(user_question)
+
+        final_sql = extract_sql(sql)
+
+        # Optional: log for debugging
+        print("🧠 SQL generated by DeepSeek:", final_sql)
+
+        if ";" in final_sql.strip().rstrip(";"):
+            raise Exception("Invalid SQL: multiple statements are not allowed.")
+
+        results = query_db(final_sql)
+        
+        headers = {
+            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        # Optionally: summarize results with DeepSeek
+        summary_prompt = f"""
+            You are a helpful HR data analyst assistant.
+
+            User's question: "{user_question}"
+
+            Query result: {results}
+
+            Instructions:
+            1. First, give a **direct, factual answer** based only on the query result. Be specific and concise.
+            2. Then, provide any **insights or patterns** you observe. Mention extremes or noteworthy trends if they exist.
+            3. Keep the response clear and professional. Avoid repeating the user's question.
+            4. Use bullet points only in the second part if needed. No emojis.
+            """
+
+
+
+        body = {
+            "model": "deepseek-chat",
+            "messages": [{"role": "user", "content": summary_prompt}],
+            "max_tokens": 300
+        }
+        response = requests.post("https://api.deepseek.com/v1/chat/completions", headers=headers, json=body)
+        reply = response.json()["choices"][0]["message"]["content"]
+        return jsonify({"reply": reply})
+
+    except Exception as e:
+        return jsonify({"reply": f"Sorry, I couldn't process that. Error: {str(e)}"})
+
 
 if __name__ == "__main__":
-    app.run(debug=False, host="0.0.0.0", port=10000)
+    app.run(debug=True)
