@@ -1,3 +1,6 @@
+from gevent import monkey
+monkey.patch_all()
+
 from flask import Flask, render_template, jsonify, redirect, url_for, request, session, flash
 from flask_mail import Mail, Message
 import re
@@ -68,17 +71,26 @@ DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
 mail = Mail(app)
 
+
 _first_request_handled = False
 
 @app.before_request
 def initialize_on_first_request():
     global _first_request_handled
     if not _first_request_handled:
-        # Create tables and initialize data
-        create_users_table()
-        upload_csv_once()
-        _first_request_handled = True
-        print("✅ Database initialized")
+        try:
+            # Just check if tables exist rather than recreating
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1 FROM users LIMIT 1")
+            cursor.close()
+            conn.close()
+            _first_request_handled = True
+        except:
+            # Only create tables if they don't exist
+            create_users_table()
+            upload_csv_once()
+            _first_request_handled = True
 
 # PostgreSQL DB connection using Render URL
 def get_db_connection():
