@@ -22,6 +22,8 @@ import requests
 import psycopg2
 from urllib.parse import urlparse
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
+
 
 load_dotenv()
 
@@ -178,6 +180,17 @@ def query_db(query):
     cursor.close()
     connection.close()
     return result
+
+
+@app.route('/upload-csv-once')  
+def upload_csv_once():
+    try:
+        df = pd.read_csv("Extended_Employee_Performance_and_Productivity_Data.csv")
+        engine = create_engine(os.getenv("DATABASE_URL"))
+        df.to_sql("employees", engine, if_exists="replace", index=False)
+        return "✅ CSV uploaded to PostgreSQL successfully!"
+    except Exception as e:
+        return f"❌ Error uploading CSV: {str(e)}"
 
 
 # Step 1: Ask DeepSeek to generate SQL
