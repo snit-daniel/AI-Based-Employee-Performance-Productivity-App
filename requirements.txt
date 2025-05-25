@@ -181,3 +181,4 @@ Werkzeug
 yarl
 gunicorn
 zstandard
+psycopg2-binary
