@@ -59,6 +59,9 @@ app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
 app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_DEFAULT_SENDER")
 
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+
+
 mail = Mail(app)
 
 # PostgreSQL DB connection using Render URL
