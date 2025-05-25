@@ -68,11 +68,17 @@ DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
 mail = Mail(app)
 
-# After app creation
-@app.before_first_request
-def initialize_database():
-    create_users_table()
-    upload_csv_once()  # If you need the employees data too
+_first_request_handled = False
+
+@app.before_request
+def initialize_on_first_request():
+    global _first_request_handled
+    if not _first_request_handled:
+        # Create tables and initialize data
+        create_users_table()
+        upload_csv_once()
+        _first_request_handled = True
+        print("✅ Database initialized")
 
 # PostgreSQL DB connection using Render URL
 def get_db_connection():
@@ -683,4 +689,5 @@ def chatbot():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))  # Get port from Render's environment
+    app.run(host='0.0.0.0', port=port)
