@@ -4,7 +4,6 @@ import re
 import pandas as pd
 import os
 import plotly.express as px
-import mysql.connector
 import joblib
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,32 +12,25 @@ from io import BytesIO
 from multiprocessing import get_start_method
 import matplotlib
 matplotlib.use('Agg')
-#from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import base64
-from sklearn.preprocessing import LabelEncoder
 from datetime import datetime
-import pymysql
+import pymysql  # Unused now; kept in case you revert back to MySQL
 import requests
 import psycopg2
 from urllib.parse import urlparse
-
 from dotenv import load_dotenv
+
 load_dotenv()
-from dotenv import load_dotenv
-
-
 
 # Initialize start method
 start_method = get_start_method()
 print(f"Using start method: {start_method}")
 
 # Load the pre-trained model
-
-# Use relative path from the current file location
 model_path = os.path.join(os.path.dirname(__file__), "random_forest_model.pkl")
-
 try:
     if os.path.exists(model_path):
         model = joblib.load(model_path)
@@ -59,101 +51,87 @@ bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
-DEEPSEEK_API_KEY = "sk-72385ab6d41845058899aabb4be43f32"
-
-
-
 # Email Configuration
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
 app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
-app.config['MAIL_DEFAULT_SENDER'] = "snitdan17@gmail.com"  # Default sender
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_DEFAULT_SENDER")
 
-# Initialize Flask-Mail
 mail = Mail(app)
 
-# Database connection
+# PostgreSQL DB connection using Render URL
 def get_db_connection():
     result = urlparse(os.getenv("DATABASE_URL"))
-
     return psycopg2.connect(
-        database=result.path[1:],  # skip the leading '/'
+        database=result.path[1:],
         user=result.username,
         password=result.password,
         host=result.hostname,
         port=result.port
     )
 
-
-# Function to send an HR email
+# Email notification
 def send_hr_email(employee, status):
-    try:
-        subject = f"Alert: {status} Detected for Employee {employee['Name']}"
-        body = f"""
-        Dear HR,
-        This is to notify you that employee {employee['Name']} (ID: {employee['Employee_ID']}) has a {status}.
-        Performance Score: {employee['Performance_Score']}
-
-        Please take necessary action.
-
-        Best regards,
-        Performance Monitoring System
-        """
-        msg = Message(
-            subject=subject,
-            sender=app.config['MAIL_DEFAULT_SENDER'],
-            recipients=["snitdan17@gmail.com"]  # Send to yourself for testing
-        )
-        msg.body = body
-        mail.send(msg)
-        print(f"Email sent successfully to HR about {employee['Name']}")
-        return True
-    except Exception as e:
-        print(f"Failed to send email: {str(e)}")
+    if not app.config['MAIL_USERNAME'] or not app.config['MAIL_PASSWORD']:
+        print("❌ Email config missing!")
         return False
 
+    subject = f"Employee Performance Alert: {employee['Employee_ID']}"
+    body = f"""
+    HR Team,
+
+    Employee {employee['Employee_ID']} - {employee.get('Job_Title', 'Unknown')} in {employee.get('Department', 'Unknown')} 
+    has been classified as: {status}.
+
+    Performance Score: {employee['Performance_Score']}
+
+    Regards,
+    AI Performance System
+    """
+    msg = Message(subject, recipients=["snitdan17@gmail.com"])
+    msg.body = body
+    mail.send(msg)
+    print(f"✅ Email sent for {employee['Name']}")
+    return True
+
+# Performance check logic
 def check_and_notify_low_performance():
     connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
+    cursor = connection.cursor()
+    low_threshold = 2.5
+    cursor.execute("SELECT * FROM employees WHERE Performance_Score < %s", (low_threshold,))
+    rows = cursor.fetchall()
 
-    low_performance_threshold = 2.5
+    # Convert PostgreSQL tuples to dict (column names)
+    colnames = [desc[0] for desc in cursor.description]
+    low_performers = [dict(zip(colnames, row)) for row in rows]
 
-    cursor.execute("SELECT * FROM employees WHERE Performance_Score < %s", (low_performance_threshold,))
-    low_performers = cursor.fetchall()
-
-    for employee in low_performers:
-        send_hr_email(employee, status="Low Performance")
+    for emp in low_performers:
+        send_hr_email(emp, "Low Performance")
 
     cursor.close()
     connection.close()
-    print(f"Checked and sent alerts at {datetime.now()}")
+    print(f"✅ Low performance check completed at {datetime.now()}")
 
-
-
-
+# Email test route
 @app.route('/test-email')
 def test_email():
     try:
-        # Create a test employee
         test_employee = {
             'Name': 'Test Employee',
             'Employee_ID': '123',
-            'Performance_Score': 2.0
+            'Performance_Score': 2.0,
+            'Job_Title': 'Intern',
+            'Department': 'Testing'
         }
-        
-        # Send test email
         success = send_hr_email(test_employee, "Low Performance")
-        
-        if success:
-            return "Test email sent successfully! Check your inbox (and spam folder)."
-        else:
-            return "Failed to send test email."
+        return "✅ Email sent!" if success else "❌ Email failed."
     except Exception as e:
         return f"Error: {str(e)}"
 
-# User Class for Flask-Login
+# Flask-Login User class
 class User(UserMixin):
     def __init__(self, id, username, email):
         self.id = id
@@ -163,72 +141,41 @@ class User(UserMixin):
 @login_manager.user_loader
 def load_user(user_id):
     connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
-    user = cursor.fetchone()
+    cursor = connection.cursor()
+    cursor.execute("SELECT id, username, email FROM users WHERE id = %s", (user_id,))
+    row = cursor.fetchone()
     cursor.close()
     connection.close()
-    if user:
-        return User(user["id"], user["username"], user["email"])
+    if row:
+        return User(*row)
     return None
 
-# Helper function to get employee data
+# Helper to get employee info
 def get_employee_data(employee_id):
-    connection = mysql.connector.connect(
-        host="localhost",
-            user="root",
-            password="snit",
-        database="employee_performance"
-    )
-    cursor = connection.cursor(dictionary=True)
+    connection = get_db_connection()
+    cursor = connection.cursor()
     cursor.execute("SELECT * FROM employees WHERE Employee_ID = %s", (employee_id,))
-    employee = cursor.fetchone()
+    row = cursor.fetchone()
+    if not row:
+        return None
+    colnames = [desc[0] for desc in cursor.description]
+    employee = dict(zip(colnames, row))
     cursor.close()
     connection.close()
     return employee
 
-# Helper function to send HR emails
-def send_hr_email(employee, status):
-    if not app.config['MAIL_USERNAME'] or not app.config['MAIL_PASSWORD']:
-        print("Email configuration missing!")
-        return
-    
-    subject = f"Employee Performance Alert: {employee['Employee_ID']}"
-    body = f"""
-    HR Team,
-
-    Employee {employee['Employee_ID']} - {employee['Job_Title']} in {employee['Department']} has been classified as: {status}.
-
-    Recommended Action: {status}
-
-    Regards,
-    AI Performance System
-    """
-    msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=["snitdan17@gmail.com"])
-    msg.body = body
-    mail.send(msg)
-
-
-
-
-
-
-
-# MySQL connection setup
-db_config = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': 'snit',
-    'database': 'employee_performance',
-    'cursorclass': pymysql.cursors.DictCursor
-}
-
-
+# Generic DB query
 def query_db(query):
-    with pymysql.connect(**db_config) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(query)
-            return cursor.fetchall()
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    colnames = [desc[0] for desc in cursor.description]
+    result = [dict(zip(colnames, row)) for row in rows]
+    cursor.close()
+    connection.close()
+    return result
+
 
 # Step 1: Ask DeepSeek to generate SQL
 def ask_deepseek_for_sql(question):
