@@ -48,6 +48,8 @@ except Exception as e:
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 
+
+
 # Initialize extensions
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
@@ -66,34 +68,61 @@ DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
 mail = Mail(app)
 
+# After app creation
+@app.before_first_request
+def initialize_database():
+    create_users_table()
+    upload_csv_once()  # If you need the employees data too
+
 # PostgreSQL DB connection using Render URL
 def get_db_connection():
-    result = urlparse(os.getenv("DATABASE_URL"))
-    return psycopg2.connect(
-        database=result.path[1:],
-        user=result.username,
-        password=result.password,
-        host=result.hostname,
-        port=result.port
-    )
+    try:
+        result = urlparse(os.getenv("DATABASE_URL"))
+        conn = psycopg2.connect(
+            database=result.path[1:],
+            user=result.username,
+            password=result.password,
+            host=result.hostname,
+            port=result.port
+        )
+        print("✅ Successfully connected to PostgreSQL!")
+        return conn
+    except Exception as e:
+        print(f"❌ Error connecting to PostgreSQL: {e}")
+        raise
 
 @app.route("/create-users-table")
 def create_users_table():
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
+        
+        # Check if table exists first
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(100),
-                email VARCHAR(255) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'users'
             );
         """)
-        connection.commit()
+        table_exists = cursor.fetchone()[0]
+        
+        if not table_exists:
+            cursor.execute("""
+                CREATE TABLE users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(100),
+                    email VARCHAR(255) UNIQUE NOT NULL,
+                    password VARCHAR(255) NOT NULL
+                );
+            """)
+            connection.commit()
+            message = "✅ Users table created successfully!"
+        else:
+            message = "✅ Users table already exists"
+            
         cursor.close()
         connection.close()
-        return "✅ Users table created successfully!"
+        return message
     except Exception as e:
         return f"❌ Error creating users table: {e}"
 
