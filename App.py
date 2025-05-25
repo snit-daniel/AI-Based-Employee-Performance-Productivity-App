@@ -21,7 +21,8 @@ from sklearn.preprocessing import LabelEncoder
 from datetime import datetime
 import pymysql
 import requests
-
+import psycopg2
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -75,12 +76,16 @@ mail = Mail(app)
 
 # Database connection
 def get_db_connection():
-    return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="snit",
-        database="employee_performance"
+    result = urlparse(os.getenv("DATABASE_URL"))
+
+    return psycopg2.connect(
+        database=result.path[1:],  # skip the leading '/'
+        user=result.username,
+        password=result.password,
+        host=result.hostname,
+        port=result.port
     )
+
 
 # Function to send an HR email
 def send_hr_email(employee, status):
