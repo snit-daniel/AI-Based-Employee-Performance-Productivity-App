@@ -314,6 +314,7 @@ def home():
 
 
 
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
@@ -323,23 +324,35 @@ def login():
         email = request.form['email']
         password = request.form['password']
 
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-        user = cursor.fetchone()
-        cursor.close()
-        connection.close()
-
-        if user and bcrypt.check_password_hash(user['password'], password):
-            login_user(User(user["id"], user["username"], user["email"]))
-            session['user_id'] = user["id"]
-            flash('Login successful!', 'success')
-            return redirect(url_for('home'))
-        else:
-            flash('Invalid email or password. Please try again.', 'danger')
-            return redirect(url_for('login'))
+        try:
+            connection = get_db_connection()
+            cursor = connection.cursor()  # Remove dictionary=True
+            
+            # Get user data
+            cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+            user_data = cursor.fetchone()
+            
+            if user_data:
+                # Convert tuple to dictionary
+                columns = [desc[0] for desc in cursor.description]
+                user = dict(zip(columns, user_data))
+                
+                if bcrypt.check_password_hash(user['password'], password):
+                    login_user(User(user["id"], user["username"], user["email"]))
+                    return redirect(url_for('home'))
+            
+            flash('Invalid email or password', 'danger')
+            
+        except Exception as e:
+            app.logger.error(f"Login error: {str(e)}")
+            flash('An error occurred during login', 'danger')
+        finally:
+            cursor.close()
+            connection.close()
 
     return render_template('login.html')
+
+
 
 
 @app.route('/signup', methods=['GET', 'POST'])
