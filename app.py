@@ -404,9 +404,13 @@ def logout():
 def visualization():
     try:
         connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()  # Removed dictionary=True
+        
+        # Execute query and convert results to dictionary format
         cursor.execute("SELECT * FROM employees")
-        data = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]  # Get column names
+        data = [dict(zip(columns, row)) for row in cursor.fetchall()]  # Convert to dict
+        
         df = pd.DataFrame(data)
 
         # Ensure columns are of the correct type
@@ -474,10 +478,6 @@ def visualization():
         img5.seek(0)
         line_chart_url = base64.b64encode(img5.getvalue()).decode('utf8')
 
-        # Close the database connection
-        cursor.close()
-        connection.close()
-
         return render_template('visualization.html', 
                             scatter_plot_url=scatter_plot_url, 
                             count_plot_url=count_plot_url, 
@@ -485,21 +485,37 @@ def visualization():
                             line_chart_url=line_chart_url)
 
     except Exception as e:
+        # Proper error handling with resource cleanup
+        if 'cursor' in locals():
+            cursor.close()
+        if 'connection' in locals():
+            connection.close()
         return f"Error: {e}"
+    finally:
+        # Ensure resources are always closed
+        if 'cursor' in locals():
+            cursor.close()
+        if 'connection' in locals():
+            connection.close()
 
 
-# Performance Prediction Route
+
 @app.route('/prediction', methods=['GET', 'POST'])
 def prediction():
     # Send email with all low performers when page is loaded (GET request)
     if request.method == 'GET':
+        connection = None
+        cursor = None
         try:
             connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
+            cursor = connection.cursor()  # Removed dictionary=True
             
             # Get all employees with performance < 2
             cursor.execute("SELECT * FROM employees WHERE Performance_Score < 2")
-            low_performers = cursor.fetchall()
+            
+            # Convert results to dictionary format
+            columns = [desc[0] for desc in cursor.description]
+            low_performers = [dict(zip(columns, row)) for row in cursor.fetchall()]
             
             if low_performers:
                 # Prepare email content
@@ -524,12 +540,14 @@ def prediction():
                 
                 flash('Low performers report sent to HR', 'info')
             
-            cursor.close()
-            connection.close()
-            
         except Exception as e:
             print(f"Error sending low performers email: {str(e)}")
             flash('Failed to send low performers report', 'error')
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
 
     if request.method == 'POST':
         # Handle existing employee search
@@ -582,12 +600,12 @@ def prediction():
                 "Training_Hours": int(form_data["training_hours"]),
                 "Team_Size": int(form_data["team_size"]),
                 "Remote_Work_Frequency": float(form_data["remote_work_frequency"]),
-                "Projects_Handled": int(form_data.get("projects_handled", 0)),  # Default value
-                "Overtime_Hours": int(form_data.get("overtime_hours", 0)),  # Default value
+                "Projects_Handled": int(form_data.get("projects_handled", 0)),
+                "Overtime_Hours": int(form_data.get("overtime_hours", 0)),
                 "Gender": form_data["gender"],
-                "Work_Hours_Per_Week": int(form_data.get("work_hours_per_week", 40)),  # Default value
+                "Work_Hours_Per_Week": int(form_data.get("work_hours_per_week", 40)),
                 "Education_Level": form_data["education"],
-                "Years_At_Company": int(form_data.get("years_at_company", 0))  # Default value
+                "Years_At_Company": int(form_data.get("years_at_company", 0))
             }
 
             # Convert input data to DataFrame
@@ -605,7 +623,7 @@ def prediction():
             # Make prediction
             prediction = model.predict(input_df)
 
-            # Determine employee status and recommendation based on prediction
+            # Determine employee status and recommendation
             if prediction[0] < 2:
                 status = "At Risk of Layoff"
                 recommendation = "Consider retraining or performance improvement plan."
@@ -616,14 +634,11 @@ def prediction():
                 status = "Needs Motivation"
                 recommendation = "Provide additional incentives or training."
 
-            # Print variables for debugging
             print(f"Prediction: {prediction[0]}, Status: {status}, Recommendation: {recommendation}")
 
-            # Return prediction result
             return render_template('prediction.html', prediction=prediction[0], 
                                    status=status, recommendation=recommendation)
 
-    # Default GET request
     return render_template('prediction.html')
 
 
